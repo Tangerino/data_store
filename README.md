@@ -1,12 +1,12 @@
 # Data Store
 
-Data Store is library that implenets a time series database with automatic data rollup.
+Data Store is library that implements a time series database with automatic data rollup.
 
 Once the data is inserted it is aggregated by hour, day, month and year on-the-fly
 
 Requests can be made on the raw data or on the aggregated data
 
-Data can be dumped so extracted and pushblish to other service periodically
+Data can be dumped so extracted and publish to other service periodically
 
 It is easy to build a REST service around the library making ot accessible by other processes
 
