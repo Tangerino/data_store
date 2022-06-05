@@ -20,8 +20,7 @@ class Datastore:
     def fetchall(query, conn):
         cur = conn.cursor()
         cur.execute(query)
-        rows = cur.fetchall()
-        return rows
+        return cur.fetchall()
 
     @staticmethod
     def _rebuild(conn):
@@ -81,7 +80,7 @@ class Datastore:
         if not os.path.exists(database):
             new_file = True
             if not create:
-                raise Exception("Database not found")
+                raise ValueError("Database not found")
         self.database = database
         self.user_name = user_name
         self.password = password
@@ -107,8 +106,7 @@ class Datastore:
         rows = cur.fetchone()
         if rows is None:
             return rows
-        id = rows[0]
-        return id
+        return rows[0]
 
     @staticmethod
     def get_ts_hour(time_stamp):
@@ -119,7 +117,7 @@ class Datastore:
         return time_stamp
 
     def data_create(self, time_series):
-        jobs = dict()
+        jobs = {}
         id = self.get_sensor_id(self.conn, time_series.name)
         cur = self.conn.cursor()
         if id is None:
@@ -128,13 +126,11 @@ class Datastore:
             self.conn.commit()
             id = cur.lastrowid
         q = "INSERT INTO series (sensor_id, ts, value, status) VALUES "
-        dp_count = 0
-        for dp in time_series.data_points:
+        for dp_count, dp in enumerate(time_series.data_points):
             if dp_count > 0:
                 q += ",\n"
-            row = "({}, {}, {}, {})".format(id, dp[TS], dp[VALUE], dp[STATUS])
+            row = f"({id}, {dp[TS]}, {dp[VALUE]}, {dp[STATUS]})"
             q += row
-            dp_count += 1
             hour = self.get_ts_hour(dp[TS])
             jobs[hour] = 1
         cur.execute(q)
@@ -153,7 +149,7 @@ class Datastore:
         sd = t.to_epoch(start_date)
         ed = t.to_epoch(end_date)
         if sd is None or ed is None:
-            raise Exception("Invalid date")
+            raise ValueError("Invalid date")
         q = '''
             SELECT h.ts, h.value, h.status FROM series h
             JOIN sensors s ON (h.sensor_id = s.id)
@@ -172,27 +168,27 @@ class Datastore:
         sd = t.to_epoch(start_date)
         ed = t.to_epoch(end_date)
         if sd is None or ed is None:
-            raise Exception("Invalid date")
+            raise ValueError("Invalid date")
         groups = [
             "hour", "day", "month", "year"
         ]
         if group_by not in groups:
-            raise Exception("Invalid group")
+            raise ValueError("Invalid group")
         functions = [
             "max", "min", "count", "sum", "avg", "first", "last"
         ]
         if function not in functions:
-            raise Exception("Invalid function")
-        if group_by == "hour":
-            rollup_type = JOB_TYPE_HOUR
-        elif group_by == "day":
+            raise ValueError("Invalid function")
+        if group_by == "day":
             rollup_type = JOB_TYPE_DAY
+        elif group_by == "hour":
+            rollup_type = JOB_TYPE_HOUR
         elif group_by == "month":
             rollup_type = JOB_TYPE_MONTH
         else:
             rollup_type = JOB_TYPE_YEAR
-        if function == "first" or function == "last":
-            raise Exception("Function not implemented")
+        if function in ["first", "last"]:
+            raise ValueError("Function not implemented")
         q = '''
             SELECT h.ts, h.v{}, 0 FROM rollup h
             JOIN sensors s ON (h.sensor_id = s.id)
@@ -228,7 +224,7 @@ class Datastore:
         '''
         query = q.format(start_index, limit)
         rows = self.fetchall(query, self.conn)
-        d = list()
+        d = []
         for row in rows:
             dt = epoch_to_date(row[2]).strftime("%Y-%m-%dT%H:%M:%S")
             item = {
@@ -250,7 +246,7 @@ class Datastore:
         '''
         query = q.format(start_index, limit)
         rows = self.fetchall(query, self.conn)
-        d = list()
+        d = []
         for row in rows:
             dt = epoch_to_date(row[3]).strftime("%Y-%m-%dT%H:%M:%S")
             item = {
@@ -268,7 +264,7 @@ class Datastore:
         return d
 
     def data_delete(self, sensor_name, start_date, end_date, group_by=None, function=None):
-        raise Exception("Not implemented")
+        raise ValueError("Not implemented")
 
 
 if __name__ == "__main__":
@@ -276,7 +272,7 @@ if __name__ == "__main__":
     sensor_name = "test"
     t = Timeseries(name=sensor_name)
     now = datetime(2020, 1, 1)
-    for i in range(96 * 10):  # 10 days
+    for _ in range(96 * 10):
         t.add_data_point(now, 1)  # new data point
         now += timedelta(minutes=15)  # next timestamp
     db.data_create(t)  # persist time series
